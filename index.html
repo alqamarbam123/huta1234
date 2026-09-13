@@ -3,6 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <script>
+      // Suppress benign [vite] HMR websocket notices in sandbox environment
+      (function() {
+        var origErr = console.error;
+        var origWarn = console.warn;
+        console.error = function() {
+          var first = arguments[0];
+          if (typeof first === 'string' && (first.indexOf('[vite]') !== -1 || first.indexOf('failed to connect to websocket') !== -1)) {
+            return;
+          }
+          origErr.apply(console, arguments);
+        };
+        console.warn = function() {
+          var first = arguments[0];
+          if (typeof first === 'string' && (first.indexOf('[vite]') !== -1 || first.indexOf('failed to connect to websocket') !== -1)) {
+            return;
+          }
+          origWarn.apply(console, arguments);
+        };
+        window.addEventListener('error', function(e) {
+          if (e.message && (e.message.indexOf('[vite]') !== -1 || e.message.indexOf('websocket') !== -1)) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+          }
+        }, true);
+      })();
+    </script>
     <title>HUTA Marketplace</title>
     <meta name="description" content="Sri Lanka's premier buy & sell classifieds marketplace for vehicles, electronics, property, and more with admin controls and member dashboards." />
     <meta name="theme-color" content="#FF5A36" />

@@ -1,0 +1,135 @@
+{
+  "entities": {
+    "Conversation": {
+      "title": "Conversation",
+      "description": "A chat thread between a buyer and a seller regarding a marketplace listing.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the conversation.",
+          "maxLength": 128
+        },
+        "listingId": {
+          "type": "string",
+          "description": "Identifier of the listing being discussed.",
+          "maxLength": 128
+        },
+        "listingTitle": {
+          "type": "string",
+          "description": "Title of the listing.",
+          "maxLength": 200
+        },
+        "listingPrice": {
+          "type": "number",
+          "description": "Price of the listing in LKR."
+        },
+        "listingImage": {
+          "type": "string",
+          "description": "Thumbnail image URL of the listing.",
+          "maxLength": 1000
+        },
+        "buyerId": {
+          "type": "string",
+          "description": "UID of the buyer participant.",
+          "maxLength": 128
+        },
+        "buyerName": {
+          "type": "string",
+          "description": "Display name of the buyer.",
+          "maxLength": 100
+        },
+        "sellerId": {
+          "type": "string",
+          "description": "UID of the seller.",
+          "maxLength": 128
+        },
+        "sellerName": {
+          "type": "string",
+          "description": "Display name of the seller.",
+          "maxLength": 100
+        },
+        "lastMessage": {
+          "type": "string",
+          "description": "Snippet of the most recent message.",
+          "maxLength": 500
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of the most recent activity.",
+          "maxLength": 64
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp when conversation was initiated.",
+          "maxLength": 64
+        }
+      },
+      "required": ["listingId", "listingTitle", "buyerId", "sellerId", "createdAt", "updatedAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "An individual chat message in a conversation thread.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the message.",
+          "maxLength": 128
+        },
+        "conversationId": {
+          "type": "string",
+          "description": "Parent conversation ID.",
+          "maxLength": 128
+        },
+        "senderId": {
+          "type": "string",
+          "description": "UID of the message sender.",
+          "maxLength": 128
+        },
+        "senderName": {
+          "type": "string",
+          "description": "Display name of the sender.",
+          "maxLength": 100
+        },
+        "text": {
+          "type": "string",
+          "description": "Message text body.",
+          "maxLength": 2000,
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp when the message was sent.",
+          "maxLength": 64
+        }
+      },
+      "required": ["conversationId", "senderId", "senderName", "text", "createdAt"]
+    },
+    "TestConnection": {
+      "title": "TestConnection",
+      "description": "Health check document to verify Cloud Firestore connectivity upon app boot.",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "Connection status string."
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/test/{docId}": {
+      "schema": { "$ref": "#/entities/TestConnection" },
+      "description": "Health check document used by testConnection() upon initial boot."
+    },
+    "/conversations/{conversationId}": {
+      "schema": { "$ref": "#/entities/Conversation" },
+      "description": "Collection of top-level conversation threads between buyers and sellers."
+    },
+    "/conversations/{conversationId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/Message" },
+      "description": "Subcollection of chat messages belonging to a conversation."
+    }
+  }
+}

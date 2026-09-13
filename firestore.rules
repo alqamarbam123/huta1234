@@ -1,0 +1,117 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default-deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Master Gate helper: Get parent conversation document
+    function getConversation(conversationId) {
+      return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+    }
+
+    function isConversationParticipant(conversationId) {
+      return isSignedIn() && (
+        getConversation(conversationId).buyerId == request.auth.uid ||
+        getConversation(conversationId).sellerId == request.auth.uid
+      );
+    }
+
+    // Conversation schema validation blueprint
+    function isValidConversation(data) {
+      return data.listingId is string && data.listingId.size() > 0 && data.listingId.size() <= 128 &&
+             data.listingTitle is string && data.listingTitle.size() > 0 && data.listingTitle.size() <= 200 &&
+             data.buyerId is string && data.buyerId == request.auth.uid &&
+             data.sellerId is string && data.sellerId.size() > 0 && data.sellerId.size() <= 128 &&
+             data.buyerName is string && data.buyerName.size() <= 100 &&
+             data.sellerName is string && data.sellerName.size() <= 100 &&
+             data.createdAt is string && data.createdAt.size() <= 64 &&
+             data.updatedAt is string && data.updatedAt.size() <= 64 &&
+             (!('lastMessage' in data) || (data.lastMessage is string && data.lastMessage.size() <= 500)) &&
+             (!('listingPrice' in data) || (data.listingPrice is number)) &&
+             (!('listingImage' in data) || (data.listingImage is string && data.listingImage.size() <= 1000));
+    }
+
+    // Message schema validation blueprint
+    function isValidMessage(data, conversationId) {
+      return data.conversationId == conversationId &&
+             data.senderId == request.auth.uid &&
+             data.senderName is string && data.senderName.size() > 0 && data.senderName.size() <= 100 &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 2000 &&
+             data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    // Connection Health Check Collection
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // Conversations Collection
+    match /conversations/{conversationId} {
+      // Individual document read
+      allow get: if isSignedIn() && isValidId(conversationId) &&
+        (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
+
+      // List queries: Enforce that queries only match documents where user is participant
+      allow list: if isSignedIn() &&
+        (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
+
+      // Create new conversation: Initiator must be the buyer
+      allow create: if isSignedIn() && isValidId(conversationId) &&
+        incoming().buyerId == request.auth.uid &&
+        isValidConversation(incoming()) &&
+        incoming().keys().hasAll(['listingId', 'listingTitle', 'buyerId', 'sellerId', 'createdAt', 'updatedAt']);
+
+      // Update conversation: Participants can only update lastMessage and updatedAt
+      allow update: if isSignedIn() && isValidId(conversationId) &&
+        (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid) &&
+        incoming().buyerId == resource.data.buyerId &&
+        incoming().sellerId == resource.data.sellerId &&
+        incoming().listingId == resource.data.listingId &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'updatedAt']);
+
+      // Conversations cannot be deleted directly by clients
+      allow delete: if false;
+
+      // Messages Subcollection
+      match /messages/{messageId} {
+        // Individual message read
+        allow get: if isValidId(conversationId) && isValidId(messageId) &&
+          isConversationParticipant(conversationId);
+
+        // List messages within this conversation
+        allow list: if isValidId(conversationId) &&
+          isConversationParticipant(conversationId);
+
+        // Create message: Must be a participant, senderId must be author
+        allow create: if isValidId(conversationId) && isValidId(messageId) &&
+          isConversationParticipant(conversationId) &&
+          incoming().senderId == request.auth.uid &&
+          isValidMessage(incoming(), conversationId) &&
+          incoming().keys().hasAll(['conversationId', 'senderId', 'senderName', 'text', 'createdAt']);
+
+        // Messages are append-only immutable logs
+        allow update, delete: if false;
+      }
+    }
+  }
+}

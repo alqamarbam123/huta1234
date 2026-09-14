@@ -1,69 +1,121 @@
 {
   "entities": {
+    "Listing": {
+      "title": "Listing",
+      "description": "A classified marketplace ad listing.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "category": { "type": "string", "maxLength": 100 },
+        "price": { "type": "number" },
+        "pricingType": { "type": "string", "enum": ["fixed", "negotiable", "daily", "monthly"] },
+        "phone": { "type": "string", "maxLength": 50 },
+        "location": { "type": "string", "maxLength": 100 },
+        "district": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 5000 },
+        "status": { "type": "string", "enum": ["approved", "pending", "rejected"] },
+        "isFeatured": { "type": "boolean" },
+        "views": { "type": "number" },
+        "verifiedPro": { "type": "boolean" },
+        "userId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "title", "category", "price", "phone", "location", "district", "status"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Registered marketplace user profile.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "username": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "passwordHash": { "type": "string", "maxLength": 256 },
+        "securityQuestion": { "type": "string", "maxLength": 200 },
+        "securityAnswer": { "type": "string", "maxLength": 200 },
+        "isVerified": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "username", "role", "passwordHash"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "Cultural, motor, or community event in Sri Lanka.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "category": { "type": "string", "maxLength": 100 },
+        "district": { "type": "string", "maxLength": 100 },
+        "date": { "type": "string", "maxLength": 100 },
+        "month": { "type": "string", "maxLength": 20 },
+        "day": { "type": "string", "maxLength": 10 },
+        "time": { "type": "string", "maxLength": 100 },
+        "location": { "type": "string", "maxLength": 200 },
+        "venue": { "type": "string", "maxLength": 200 },
+        "image": { "type": "string", "maxLength": 1000 },
+        "badge": { "type": "string", "maxLength": 100 },
+        "price": { "type": "string", "maxLength": 100 },
+        "isFree": { "type": "boolean" },
+        "attendees": { "type": "number" },
+        "description": { "type": "string", "maxLength": 2000 },
+        "organizer": { "type": "string", "maxLength": 100 },
+        "isSpotlight": { "type": "boolean" }
+      },
+      "required": ["id", "title", "category", "district", "location"]
+    },
+    "HeroAd": {
+      "title": "HeroAd",
+      "description": "Hero banner promotion item and configuration.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "badge": { "type": "string", "maxLength": 100 },
+        "title": { "type": "string", "maxLength": 200 },
+        "highlightText": { "type": "string", "maxLength": 200 },
+        "subtitle": { "type": "string", "maxLength": 500 },
+        "ctaText": { "type": "string", "maxLength": 100 },
+        "ctaAction": { "type": "string", "maxLength": 100 },
+        "gradientTheme": { "type": "string", "maxLength": 50 },
+        "animationType": { "type": "string", "maxLength": 50 },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "title", "isActive"]
+    },
+    "AdminConfig": {
+      "title": "AdminConfig",
+      "description": "Platform settings including moderation and password security.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "autoApprove": { "type": "boolean" },
+        "adminPasswordHash": { "type": "string", "maxLength": 256 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id"]
+    },
     "Conversation": {
       "title": "Conversation",
       "description": "A chat thread between a buyer and a seller regarding a marketplace listing.",
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier of the conversation.",
-          "maxLength": 128
-        },
-        "listingId": {
-          "type": "string",
-          "description": "Identifier of the listing being discussed.",
-          "maxLength": 128
-        },
-        "listingTitle": {
-          "type": "string",
-          "description": "Title of the listing.",
-          "maxLength": 200
-        },
-        "listingPrice": {
-          "type": "number",
-          "description": "Price of the listing in LKR."
-        },
-        "listingImage": {
-          "type": "string",
-          "description": "Thumbnail image URL of the listing.",
-          "maxLength": 1000
-        },
-        "buyerId": {
-          "type": "string",
-          "description": "UID of the buyer participant.",
-          "maxLength": 128
-        },
-        "buyerName": {
-          "type": "string",
-          "description": "Display name of the buyer.",
-          "maxLength": 100
-        },
-        "sellerId": {
-          "type": "string",
-          "description": "UID of the seller.",
-          "maxLength": 128
-        },
-        "sellerName": {
-          "type": "string",
-          "description": "Display name of the seller.",
-          "maxLength": 100
-        },
-        "lastMessage": {
-          "type": "string",
-          "description": "Snippet of the most recent message.",
-          "maxLength": 500
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "ISO timestamp of the most recent activity.",
-          "maxLength": 64
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "ISO timestamp when conversation was initiated.",
-          "maxLength": 64
-        }
+        "id": { "type": "string", "maxLength": 128 },
+        "listingId": { "type": "string", "maxLength": 128 },
+        "listingTitle": { "type": "string", "maxLength": 200 },
+        "listingPrice": { "type": "number" },
+        "listingImage": { "type": "string", "maxLength": 1000 },
+        "buyerId": { "type": "string", "maxLength": 128 },
+        "buyerName": { "type": "string", "maxLength": 100 },
+        "sellerId": { "type": "string", "maxLength": 128 },
+        "sellerName": { "type": "string", "maxLength": 100 },
+        "lastMessage": { "type": "string", "maxLength": 500 },
+        "updatedAt": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "maxLength": 64 }
       },
       "required": ["listingId", "listingTitle", "buyerId", "sellerId", "createdAt", "updatedAt"]
     },
@@ -72,37 +124,12 @@
       "description": "An individual chat message in a conversation thread.",
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier of the message.",
-          "maxLength": 128
-        },
-        "conversationId": {
-          "type": "string",
-          "description": "Parent conversation ID.",
-          "maxLength": 128
-        },
-        "senderId": {
-          "type": "string",
-          "description": "UID of the message sender.",
-          "maxLength": 128
-        },
-        "senderName": {
-          "type": "string",
-          "description": "Display name of the sender.",
-          "maxLength": 100
-        },
-        "text": {
-          "type": "string",
-          "description": "Message text body.",
-          "maxLength": 2000,
-          "minLength": 1
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "ISO timestamp when the message was sent.",
-          "maxLength": 64
-        }
+        "id": { "type": "string", "maxLength": 128 },
+        "conversationId": { "type": "string", "maxLength": 128 },
+        "senderId": { "type": "string", "maxLength": 128 },
+        "senderName": { "type": "string", "maxLength": 100 },
+        "text": { "type": "string", "maxLength": 2000, "minLength": 1 },
+        "createdAt": { "type": "string", "maxLength": 64 }
       },
       "required": ["conversationId", "senderId", "senderName", "text", "createdAt"]
     },
@@ -111,10 +138,7 @@
       "description": "Health check document to verify Cloud Firestore connectivity upon app boot.",
       "type": "object",
       "properties": {
-        "status": {
-          "type": "string",
-          "description": "Connection status string."
-        }
+        "status": { "type": "string" }
       }
     }
   },
@@ -122,6 +146,26 @@
     "/test/{docId}": {
       "schema": { "$ref": "#/entities/TestConnection" },
       "description": "Health check document used by testConnection() upon initial boot."
+    },
+    "/listings/{listingId}": {
+      "schema": { "$ref": "#/entities/Listing" },
+      "description": "Classified ad listings collection."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User accounts and authentication records."
+    },
+    "/events/{eventId}": {
+      "schema": { "$ref": "#/entities/Event" },
+      "description": "Community and marketplace events collection."
+    },
+    "/hero_ads/{heroAdId}": {
+      "schema": { "$ref": "#/entities/HeroAd" },
+      "description": "Promotional hero banners collection."
+    },
+    "/admin_config/{configId}": {
+      "schema": { "$ref": "#/entities/AdminConfig" },
+      "description": "Master administrative settings and configurations."
     },
     "/conversations/{conversationId}": {
       "schema": { "$ref": "#/entities/Conversation" },

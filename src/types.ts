@@ -3,6 +3,7 @@ export interface Listing {
   title: string;
   category: string;
   location: string;
+  district?: string;
   price: number;
   phone: string;
   image: string;
@@ -11,6 +12,8 @@ export interface Listing {
   status: 'approved' | 'pending' | 'rejected';
   isFeatured: boolean;
   date: string;
+  createdAt?: string;
+  updatedAt?: string;
   userId: string;
   views: number;
   serviceTrade?: string;
@@ -18,6 +21,10 @@ export interface Listing {
   serviceArea?: string;
   isVerifiedPro?: boolean;
   isEmergency247?: boolean;
+  itemCondition?: string;
+  brand?: string;
+  model?: string;
+  sellerName?: string;
 }
 
 export interface User {
@@ -27,7 +34,7 @@ export interface User {
   email: string;
   phone?: string;
   password?: string;
-  securityQuestion: string;
+  securityQuestion?: string;
   securityAnswer?: string;
   created: string;
 }

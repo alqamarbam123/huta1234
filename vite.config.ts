@@ -1,14 +1,36 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, Plugin} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
+
+function silenceViteClientPlugin(): Plugin {
+  return {
+    name: 'silence-vite-client',
+    enforce: 'post',
+    transform(code: string, id: string) {
+      if (id.includes('@vite/client') || id.includes('vite/dist/client')) {
+        return {
+          code: code
+            .replace(/console\.error\(/g, '(()=>{})(')
+            .replace(/console\.warn\(/g, '(()=>{})(')
+            .replace(/console\.debug\(/g, '(()=>{})(')
+            .replace(/console\.info\(/g, '(()=>{})(')
+            .replace(/console\.log\(/g, '(()=>{})('),
+          map: null,
+        };
+      }
+      return null;
+    },
+  };
+}
 
 export default defineConfig(() => {
   return {
     plugins: [
       react(),
       tailwindcss(),
+      silenceViteClientPlugin(),
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],

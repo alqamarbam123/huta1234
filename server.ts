@@ -2,6 +2,17 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { GoogleGenAI } from '@google/genai';
+import { initializeApp } from 'firebase/app';
+import {
+  initializeFirestore,
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  setDoc,
+  deleteDoc,
+} from 'firebase/firestore';
+import firebaseConfig from './firebase-applet-config.json';
 
 interface Listing {
   id: string;
@@ -120,6 +131,7 @@ function setAdminPassword(newPassword: string): void {
     JSON.stringify({ ...cfg, password: newPassword, updatedAt: new Date().toISOString() }, null, 2),
     'utf-8'
   );
+  persistAdminConfigToFirestore({ ...cfg, password: newPassword });
 }
 
 function updateAdminConfig(updates: Partial<AdminConfig>): { password: string; autoApprove: boolean } {
@@ -130,12 +142,44 @@ function updateAdminConfig(updates: Partial<AdminConfig>): { password: string; a
     updatedAt: new Date().toISOString(),
   };
   fs.writeFileSync(ADMIN_CONFIG_FILE, JSON.stringify(merged, null, 2), 'utf-8');
+  persistAdminConfigToFirestore(merged);
   return merged;
 }
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// Initialize Firestore for backend synchronization
+let firestoreDb: any = null;
+try {
+  const firebaseApp = initializeApp(firebaseConfig, 'server-backend-app');
+  firestoreDb = initializeFirestore(firebaseApp, { experimentalForceLongPolling: true }, firebaseConfig.firestoreDatabaseId);
+  console.log('[Firestore] Backend connected to Firestore database:', firebaseConfig.firestoreDatabaseId);
+} catch (e) {
+  console.warn('[Firestore] Backend initialization warning:', e);
+}
+
+function persistListingToFirestore(listing: Listing) {
+  if (!firestoreDb) return;
+  setDoc(doc(firestoreDb, 'listings', listing.id), listing).catch((err) => {
+    console.warn('[Firestore] persist listing error:', err);
+  });
+}
+
+function deleteListingFromFirestore(id: string) {
+  if (!firestoreDb) return;
+  deleteDoc(doc(firestoreDb, 'listings', id)).catch((err) => {
+    console.warn('[Firestore] delete listing error:', err);
+  });
+}
+
+function persistAdminConfigToFirestore(cfg: { password: string; autoApprove: boolean }) {
+  if (!firestoreDb) return;
+  setDoc(doc(firestoreDb, 'admin_config', 'main'), { ...cfg, updatedAt: new Date().toISOString() }, { merge: true }).catch((err) => {
+    console.warn('[Firestore] persist admin config error:', err);
+  });
 }
 
 // Initial Seed Data - Empty for fresh live launch (customers will add real ads)
@@ -514,6 +558,7 @@ async function startServer() {
 
     listingsCache.unshift(newListing);
     saveStoredListings(listingsCache);
+    persistListingToFirestore(newListing);
     res.status(201).json(newListing);
   });
 
@@ -639,6 +684,7 @@ async function startServer() {
     }
     listingsCache.splice(index, 1);
     saveStoredListings(listingsCache);
+    deleteListingFromFirestore(req.params.id);
     res.json({ success: true, message: 'Listing deleted' });
   });
 
@@ -1407,8 +1453,12 @@ Price: Rs ${price ? Number(price).toLocaleString('en-LK') : 'Negotiable'}. Price
   // -------------------------------------------------------------
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
+    const isHmrDisabled = process.env.DISABLE_HMR === 'true';
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: isHmrDisabled ? false : undefined,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -1418,6 +1468,24 @@ Price: Rs ${price ? Number(price).toLocaleString('en-LK') : 'Negotiable'}. Price
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
+  }
+
+  // -------------------------------------------------------------
+  // Sync with Cloud Firestore on boot
+  // -------------------------------------------------------------
+  if (firestoreDb) {
+    try {
+      const snap = await getDocs(collection(firestoreDb, 'listings'));
+      if (!snap.empty) {
+        const remoteListings: Listing[] = [];
+        snap.forEach((d) => remoteListings.push(d.data() as Listing));
+        listingsCache = remoteListings;
+        saveStoredListings(listingsCache);
+        console.log(`[Firestore] Initialized server cache with ${listingsCache.length} shared listings`);
+      }
+    } catch (e) {
+      console.warn('[Firestore] Initial sync warning:', e);
+    }
   }
 
   app.listen(PORT, '0.0.0.0', () => {

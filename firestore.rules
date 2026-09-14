@@ -24,6 +24,17 @@ service cloud.firestore {
       return resource.data;
     }
 
+    // Listing validation
+    function isValidListing(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.category is string && data.category.size() > 0 && data.category.size() <= 100 &&
+             data.price is number &&
+             data.phone is string && data.phone.size() > 0 && data.phone.size() <= 50 &&
+             data.location is string && data.location.size() > 0 && data.location.size() <= 100 &&
+             data.district is string && data.district.size() > 0 && data.district.size() <= 100 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 10000));
+    }
+
     // Master Gate helper: Get parent conversation document
     function getConversation(conversationId) {
       return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
@@ -62,26 +73,56 @@ service cloud.firestore {
 
     // Connection Health Check Collection
     match /test/{docId} {
-      allow read: if true;
+      allow read, write: if true;
+    }
+
+    // Marketplace Listings
+    match /listings/{listingId} {
+      allow get, list: if true;
+      allow create: if isValidId(listingId) && isValidListing(incoming());
+      allow update: if isValidId(listingId) && isValidListing(incoming());
+      allow delete: if isValidId(listingId);
+    }
+
+    // Marketplace Community Events
+    match /events/{eventId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(eventId);
+    }
+
+    // Promotional Hero Banners & Settings
+    match /hero_ads/{heroAdId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(heroAdId);
+    }
+
+    // Administrative Configuration & Moderation
+    match /admin_config/{configId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(configId);
+    }
+
+    // Marketplace Users & Verification
+    match /users/{userId} {
+      allow get, list: if true;
+      allow create: if isValidId(userId);
+      allow update: if isValidId(userId);
+      allow delete: if isValidId(userId);
     }
 
     // Conversations Collection
     match /conversations/{conversationId} {
-      // Individual document read
       allow get: if isSignedIn() && isValidId(conversationId) &&
         (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
 
-      // List queries: Enforce that queries only match documents where user is participant
       allow list: if isSignedIn() &&
         (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
 
-      // Create new conversation: Initiator must be the buyer
       allow create: if isSignedIn() && isValidId(conversationId) &&
         incoming().buyerId == request.auth.uid &&
         isValidConversation(incoming()) &&
         incoming().keys().hasAll(['listingId', 'listingTitle', 'buyerId', 'sellerId', 'createdAt', 'updatedAt']);
 
-      // Update conversation: Participants can only update lastMessage and updatedAt
       allow update: if isSignedIn() && isValidId(conversationId) &&
         (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid) &&
         incoming().buyerId == resource.data.buyerId &&
@@ -89,27 +130,22 @@ service cloud.firestore {
         incoming().listingId == resource.data.listingId &&
         incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'updatedAt']);
 
-      // Conversations cannot be deleted directly by clients
       allow delete: if false;
 
       // Messages Subcollection
       match /messages/{messageId} {
-        // Individual message read
         allow get: if isValidId(conversationId) && isValidId(messageId) &&
           isConversationParticipant(conversationId);
 
-        // List messages within this conversation
         allow list: if isValidId(conversationId) &&
           isConversationParticipant(conversationId);
 
-        // Create message: Must be a participant, senderId must be author
         allow create: if isValidId(conversationId) && isValidId(messageId) &&
           isConversationParticipant(conversationId) &&
           incoming().senderId == request.auth.uid &&
           isValidMessage(incoming(), conversationId) &&
           incoming().keys().hasAll(['conversationId', 'senderId', 'senderName', 'text', 'createdAt']);
 
-        // Messages are append-only immutable logs
         allow update, delete: if false;
       }
     }

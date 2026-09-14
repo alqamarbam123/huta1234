@@ -6,26 +6,50 @@
     <script>
       // Suppress benign [vite] HMR websocket notices in sandbox environment
       (function() {
-        var origErr = console.error;
-        var origWarn = console.warn;
-        console.error = function() {
-          var first = arguments[0];
-          if (typeof first === 'string' && (first.indexOf('[vite]') !== -1 || first.indexOf('failed to connect to websocket') !== -1)) {
-            return;
-          }
-          origErr.apply(console, arguments);
-        };
-        console.warn = function() {
-          var first = arguments[0];
-          if (typeof first === 'string' && (first.indexOf('[vite]') !== -1 || first.indexOf('failed to connect to websocket') !== -1)) {
-            return;
-          }
-          origWarn.apply(console, arguments);
-        };
+        function isViteHmr(item) {
+          if (!item) return false;
+          var str = '';
+          try {
+            if (typeof item === 'string') str = item;
+            else if (item.message) str = item.message;
+            else if (item.stack) str = item.stack;
+            else str = String(item);
+          } catch(_) { return false; }
+          return (
+            str.indexOf('[vite]') !== -1 ||
+            str.indexOf('websocket') !== -1 ||
+            str.indexOf('WebSocket') !== -1 ||
+            str.indexOf('ws://') !== -1 ||
+            str.indexOf('wss://') !== -1 ||
+            str.indexOf('vite:ws') !== -1
+          );
+        }
+
+        ['error', 'warn', 'log', 'info', 'debug'].forEach(function(fn) {
+          var orig = console[fn];
+          console[fn] = function() {
+            for (var i = 0; i < arguments.length; i++) {
+              if (isViteHmr(arguments[i])) {
+                return;
+              }
+            }
+            if (orig) orig.apply(console, arguments);
+          };
+        });
+
         window.addEventListener('error', function(e) {
-          if (e.message && (e.message.indexOf('[vite]') !== -1 || e.message.indexOf('websocket') !== -1)) {
+          if (isViteHmr(e.message) || isViteHmr(e.error) || (e.filename && e.filename.indexOf('vite') !== -1)) {
             e.stopImmediatePropagation();
             e.preventDefault();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(e) {
+          if (isViteHmr(e.reason)) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            return true;
           }
         }, true);
       })();

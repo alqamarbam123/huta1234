@@ -32,7 +32,7 @@ const compressImage = (file: File): Promise<string> => {
       img.onerror = reject;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const maxDim = 1200;
+        const maxDim = 800;
         let { width, height } = img;
         if (width > maxDim || height > maxDim) {
           if (width > height) {
@@ -51,7 +51,7 @@ const compressImage = (file: File): Promise<string> => {
           return;
         }
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.82));
+        resolve(canvas.toDataURL('image/jpeg', 0.70));
       };
       img.src = e.target?.result as string;
     };
@@ -351,20 +351,24 @@ export const PostAdModal: React.FC<PostAdModalProps> = ({
       const primaryImage = images.length > 0 ? images[0] : fallbackImage;
       const finalImages = images.length > 0 ? images : [primaryImage];
 
+      const cleanPriceStr = price ? String(price).replace(/[^0-9.]/g, '') : '0';
+      const parsedPrice = isService && pricingType === 'quote' ? 0 : (parseFloat(cleanPriceStr) || 0);
+
       const payload: Partial<Listing> = {
         title: title.trim(),
         category,
         location,
-        price: isService && pricingType === 'quote' ? 0 : parseFloat(price || '0'),
+        district: location,
+        price: parsedPrice,
         phone: phone.trim(),
         description: description.trim(),
         image: primaryImage,
         images: finalImages,
-        userId: editingListing ? editingListing.userId : (currentUser ? currentUser.id : 'system'),
-        serviceTrade: isService ? serviceTrade : undefined,
+        userId: editingListing ? editingListing.userId : (currentUser ? currentUser.id : 'guest'),
         pricingType: isService ? pricingType : 'fixed',
-        serviceArea: isService ? serviceArea : undefined,
-        isEmergency247: isService ? isEmergency247 : false,
+        ...(isService && serviceTrade ? { serviceTrade } : {}),
+        ...(isService && serviceArea ? { serviceArea } : {}),
+        ...(isService ? { isEmergency247: Boolean(isEmergency247) } : {}),
         ...(editingListing ? {
           status: editingListing.status,
           isFeatured: editingListing.isFeatured,

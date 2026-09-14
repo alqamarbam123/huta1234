@@ -36,6 +36,20 @@ interface LocalOtpRecord {
 }
 const localOtpMap = new Map<string, LocalOtpRecord>();
 
+export function sanitizeForFirestore<T extends Record<string, any>>(obj: T): Record<string, any> {
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+        clean[key] = sanitizeForFirestore(value);
+      } else {
+        clean[key] = value;
+      }
+    }
+  }
+  return clean;
+}
+
 export const api = {
   // -------------------------------------------------------------
   // Real-Time Marketplace Listings (backed by Cloud Firestore)
@@ -196,20 +210,23 @@ export const api = {
 
   async createListing(data: Partial<Listing>): Promise<Listing> {
     const adminConfig = await this.getAdminConfig();
-    const autoApprove = adminConfig.autoApprove;
+    const autoApprove = adminConfig.autoApprove !== undefined ? adminConfig.autoApprove : true;
 
     const id = data.id || `ad-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const now = new Date().toISOString();
 
-    const newListing: Listing = {
+    const loc = String(data.location || data.district || 'Colombo').trim();
+    const dist = String(data.district || data.location || 'Colombo').trim();
+
+    const rawListing: Record<string, any> = {
       id,
       title: String(data.title || '').trim(),
       category: String(data.category || 'Other').trim(),
       price: Number(data.price) || 0,
       pricingType: data.pricingType || (data.category === 'Services' ? 'starting_at' : 'fixed'),
       phone: String(data.phone || '').trim(),
-      location: String(data.location || 'Colombo').trim(),
-      district: String(data.district || 'Colombo').trim(),
+      location: loc,
+      district: dist,
       description: String(data.description || '').trim(),
       image: data.image || (data.images && data.images[0]) || 'https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?auto=format&fit=crop&w=800&q=80',
       images: data.images && data.images.length > 0 ? data.images : [data.image || 'https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?auto=format&fit=crop&w=800&q=80'],
@@ -221,14 +238,17 @@ export const api = {
       sellerName: data.sellerName || 'Direct Seller',
       createdAt: data.createdAt || now,
       updatedAt: now,
-      itemCondition: data.itemCondition,
-      brand: data.brand,
-      model: data.model,
       date: now.split('T')[0],
-      serviceTrade: data.serviceTrade,
-      serviceArea: data.serviceArea,
-      isEmergency247: data.isEmergency247,
     };
+
+    if (data.itemCondition) rawListing.itemCondition = data.itemCondition;
+    if (data.brand) rawListing.brand = data.brand;
+    if (data.model) rawListing.model = data.model;
+    if (data.serviceTrade) rawListing.serviceTrade = data.serviceTrade;
+    if (data.serviceArea) rawListing.serviceArea = data.serviceArea;
+    if (data.isEmergency247 !== undefined) rawListing.isEmergency247 = Boolean(data.isEmergency247);
+
+    const newListing = sanitizeForFirestore(rawListing) as Listing;
 
     // 1. Write to shared Cloud Firestore (reflects on Vercel + Cloud Run immediately)
     try {
@@ -239,11 +259,18 @@ export const api = {
 
     // 2. Also notify backend API if running
     try {
-      await fetch(`${API_BASE}/listings`, {
+      const res = await fetch(`${API_BASE}/listings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newListing),
       });
+      if (res.ok) {
+        const saved = await res.json();
+        if (!this.getCurrentUser()) {
+          this.addGuestListingId(saved.id || newListing.id);
+        }
+        return saved;
+      }
     } catch {
       // Backend not reached (Vercel standalone)
     }
@@ -288,7 +315,7 @@ export const api = {
 
   async updateListing(id: string, data: Partial<Listing>): Promise<Listing> {
     const updatedAt = new Date().toISOString();
-    const updates = { ...data, updatedAt };
+    const updates = sanitizeForFirestore({ ...data, updatedAt });
 
     // 1. Update in Firestore
     try {

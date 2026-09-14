@@ -1,1 +1,24 @@
-[]
+[
+  {
+    "status": "pending",
+    "pricingType": "fixed",
+    "title": "Samsung Galaxy S24 Ultra",
+    "views": 0,
+    "isFeatured": false,
+    "isEmergency247": false,
+    "userId": "guest",
+    "phone": "0712345678",
+    "id": "1789391662321",
+    "category": "Electronics",
+    "date": "2026-09-14",
+    "location": "Kandy",
+    "district": "Kandy",
+    "price": 285000,
+    "image": "https://images.unsplash.com/photo-1549399542-7e3f8b79c341",
+    "description": "Mint condition with full box and warranty",
+    "isVerifiedPro": false,
+    "images": [
+      "https://images.unsplash.com/photo-1549399542-7e3f8b79c341"
+    ]
+  }
+]

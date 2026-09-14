@@ -264,8 +264,15 @@ export default function App() {
   const filteredListings = useMemo(() => {
     let result = [...listings];
 
-    // Public marketplace view STRICTLY shows approved listings (pending ads require admin confirmation)
-    result = result.filter((item) => item.status === 'approved');
+    // Public marketplace view shows approved listings, plus visitor's own listings
+    const guestIds = api.getGuestListingIds();
+    result = result.filter(
+      (item) =>
+        item.status === 'approved' ||
+        isAdminLoggedIn ||
+        (currentUser && item.userId === currentUser.id) ||
+        guestIds.includes(item.id)
+    );
 
     // Category Filter
     if (selectedCategory !== 'All') {
@@ -401,7 +408,7 @@ export default function App() {
       } else {
         const created = await api.createListing({
           ...adData,
-          userId: currentUser ? currentUser.id : undefined,
+          userId: currentUser ? currentUser.id : 'guest',
         });
         api.addGuestListingId(created.id);
         setListings((prev) => [created, ...prev]);

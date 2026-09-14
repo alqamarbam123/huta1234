@@ -19,6 +19,7 @@ interface Listing {
   title: string;
   category: string;
   location: string;
+  district?: string;
   price: number;
   phone: string;
   image: string;
@@ -106,7 +107,7 @@ interface AdminConfig {
 function getAdminConfig(): { password: string; autoApprove: boolean } {
   const result = {
     password: process.env.ADMIN_PASSWORD || 'admin123',
-    autoApprove: false, // Default: manual moderation required - customer ads must be confirmed by admin before going live
+    autoApprove: true, // Default: live publishing enabled so visitor ads are active immediately
   };
   if (fs.existsSync(ADMIN_CONFIG_FILE)) {
     try {
@@ -163,7 +164,11 @@ try {
 
 function persistListingToFirestore(listing: Listing) {
   if (!firestoreDb) return;
-  setDoc(doc(firestoreDb, 'listings', listing.id), listing).catch((err) => {
+  const clean: Record<string, any> = {};
+  for (const [k, v] of Object.entries(listing)) {
+    if (v !== undefined) clean[k] = v;
+  }
+  setDoc(doc(firestoreDb, 'listings', listing.id), clean).catch((err) => {
     console.warn('[Firestore] persist listing error:', err);
   });
 }
@@ -505,9 +510,11 @@ async function startServer() {
   // POST /api/listings
   app.post('/api/listings', (req, res) => {
     const {
+      id: customId,
       title,
       category,
       location,
+      district,
       price,
       phone,
       image,
@@ -534,29 +541,40 @@ async function startServer() {
     const finalImages = rawImages.length > 0 ? rawImages : [finalImage];
 
     const adminCfg = getAdminConfig();
+    const finalId = customId ? String(customId) : Date.now().toString();
+
+    // Check if listing with this ID already exists in cache
+    const existingIndex = listingsCache.findIndex(l => l.id === finalId);
+
     const newListing: Listing = {
-      id: Date.now().toString(),
+      id: finalId,
       title: String(title).trim(),
       category: String(category).trim(),
       location: String(location).trim(),
+      district: String(district || location || 'Colombo').trim(),
       price: Number(price),
       phone: String(phone).trim(),
       image: finalImage,
       images: finalImages,
       description: String(description).trim(),
-      status: (adminCfg.autoApprove || (req.body.status === 'approved' && req.body.isAdminLoggedIn)) ? 'approved' : 'pending', // Pending review unless admin created or auto-approve enabled
+      status: (adminCfg.autoApprove || (req.body.status === 'approved' && req.body.isAdminLoggedIn)) ? 'approved' : 'pending',
       isFeatured: false,
       date: new Date().toISOString().split('T')[0],
-      userId: userId ? String(userId) : 'system',
+      userId: userId ? String(userId) : 'guest',
       views: 0,
-      serviceTrade: serviceTrade ? String(serviceTrade).trim() : undefined,
+      ...(serviceTrade ? { serviceTrade: String(serviceTrade).trim() } : {}),
       pricingType: pricingType || (category === 'Services' ? 'starting_at' : 'fixed'),
-      serviceArea: serviceArea ? String(serviceArea).trim() : undefined,
+      ...(serviceArea ? { serviceArea: String(serviceArea).trim() } : {}),
       isVerifiedPro: Boolean(isVerifiedPro),
       isEmergency247: Boolean(isEmergency247),
     };
 
-    listingsCache.unshift(newListing);
+    if (existingIndex >= 0) {
+      listingsCache[existingIndex] = newListing;
+    } else {
+      listingsCache.unshift(newListing);
+    }
+
     saveStoredListings(listingsCache);
     persistListingToFirestore(newListing);
     res.status(201).json(newListing);

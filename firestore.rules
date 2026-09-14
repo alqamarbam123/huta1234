@@ -31,8 +31,8 @@ service cloud.firestore {
              data.price is number &&
              data.phone is string && data.phone.size() > 0 && data.phone.size() <= 50 &&
              data.location is string && data.location.size() > 0 && data.location.size() <= 100 &&
-             data.district is string && data.district.size() > 0 && data.district.size() <= 100 &&
-             (!('description' in data) || (data.description is string && data.description.size() <= 10000));
+             (!('district' in data) || (data.district is string && data.district.size() <= 100)) &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 20000));
     }
 
     // Master Gate helper: Get parent conversation document
